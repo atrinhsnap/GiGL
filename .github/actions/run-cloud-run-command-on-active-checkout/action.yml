@@ -1,0 +1,34 @@
+name: "Submit Cloud Build with Command on Active Checkout"
+description: "Runs gcloud builds submit with a custom _CMD substitution. Ensure gcloud is already set up in the environment"
+inputs:
+  cmd:
+    description: "Command to run inside Cloud Build"
+    required: true
+  service_account:
+    description: "Service account to use for Cloud Build"
+    required: true
+  project:
+    description: "Google Cloud Project Name"
+    required: true
+  machine_type:
+    description: "Machine type to use for Cloud Build"
+    # Supported machines & pricing: https://cloud.google.com/build/pricing
+    default: "e2-highcpu-32"
+  timeout:
+    description: "Specified as duration i.e. '2h15m5s' is two hours, fifteen minutes, and five seconds"
+    default: "3h"
+  
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit Cloud Build job
+      run: |
+        gcloud builds submit . \
+          --config=.github/cloud_builder/run_command_on_active_checkout.yaml \
+          --substitutions=_CMD="${{ inputs.cmd }}" \
+          --service-account="projects/${{ inputs.project }}/serviceAccounts/${{ inputs.service_account }}" \
+          --project="${{ inputs.project }}" \
+          --machine-type="${{ inputs.machine_type }}" \
+          --timeout="${{ inputs.timeout }}"
+      shell: bash

@@ -1,0 +1,123 @@
+name: 'Run Command on a Specified PR'
+description: 'Runs a command and posts comments on a PR based on workflow progress'
+inputs:
+  github-token: 
+    description: 'GitHub token for authentication'
+    required: true
+  pr_number:
+    description: 'The pull request number'
+    required: true
+  command:
+    description: 'The command to execute on the PR'
+    required: true
+  should_leave_progress_comments:
+    description: 'Whether to leave comments to track the progress of the workflow'
+    required: false
+    default: 'false'
+  descriptive_workflow_name:
+    description: 'A descriptive name for the workflow used for tracking in comments'
+    required: false
+    default: 'Workflow'
+
+  # Parameters used for setting up the development environment for testing
+  install_dev_deps:
+    description: |
+      Set up the development environment that can allow for testing. If testing requires gcloud
+      please pass in `setup_gcloud: true`, `gcp_project_id`, `workload_identity_provider`, and 
+      `gcp_service_account_email` as inputs.
+    required: false
+    default: "false"
+  setup_gcloud:
+    description: "Set up Google Cloud authentication and tooling"
+    required: false
+    default: "false"
+  use_cloud_run:
+    description: "Whether or not to use Google Cloud Run to run the command"
+    required: false
+    default: "false"
+  gcp_project_id:
+    description: "Google Cloud Project ID"
+    required: false
+    default: ""
+  workload_identity_provider:
+    description: "Workload Identity Provider"
+    required: false
+    default: ""
+  gcp_service_account_email:
+    description: "Google Cloud Service Account Email"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - uses: snapchat/gigl/.github/actions/assert-is-collaborator@main
+      id: assert_collaborator_ran_workflow
+      with:
+        username: ${{ github.triggering_actor }}
+        initiating-pr-number: ${{ github.event.issue.number }}
+
+    - name: Set up workflow URL
+      shell: bash
+      run: echo "WORKFLOW_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
+    - name: Commment workflow started
+      if: ${{ inputs.should_leave_progress_comments == 'true' }}
+      id: comment_workflow_started
+      uses: snapchat/gigl/.github/actions/comment-on-pr@main
+      with:
+        pr_number: ${{ inputs.pr_number }}
+        message: |
+          🔄 `${{ inputs.descriptive_workflow_name }}` [started](${{ env.WORKFLOW_URL }}).
+
+    - name: Checkout PR
+      uses: snapchat/gigl/.github/actions/checkout-pr-branch@main
+      with:
+        pr_number: ${{ inputs.pr_number }}
+        github-token: ${{ inputs.github-token }}
+
+    - name: Setup development environment
+      if: ${{ inputs.install_dev_deps == 'true' || inputs.setup_gcloud == 'true' }}
+      uses: snapchat/gigl/.github/actions/setup-python-tools@main
+      with:
+        install_dev_deps: ${{ inputs.install_dev_deps }}
+        setup_gcloud: ${{ inputs.setup_gcloud }}
+        gcp_project_id: ${{ inputs.gcp_project_id }}
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        gcp_service_account_email: ${{ inputs.gcp_service_account_email }}
+
+    - name: Run specified command on the PR branch
+      if: ${{ inputs.use_cloud_run == 'false' }}
+      shell: bash
+      run: ${{ inputs.command }}
+    
+    - name: Run specified command on the PR branch using Cloud Run
+      if: ${{ inputs.use_cloud_run == 'true' }}
+      uses: snapchat/gigl/.github/actions/run-cloud-run-command-on-active-checkout@main
+      with:
+        cmd: ${{ inputs.command }}
+        service_account: ${{ inputs.gcp_service_account_email }}
+        project: ${{ inputs.gcp_project_id }}
+        
+    - name: Commment workflow succeeded
+      if: ${{ inputs.should_leave_progress_comments == 'true' }}
+      uses: snapchat/gigl/.github/actions/comment-on-pr@main
+      with:
+        pr_number: ${{ inputs.pr_number }}
+        message: |
+          ✅ Workflow completed successfully.
+        comment_id: ${{ steps.comment_workflow_started.outputs.comment_id }} # Append to the previous comment
+
+    # Failure handling step
+    - name: Comment workflow failed
+      # If assert_collaborator_ran_workflow step failed we can skip commenting, as that is handled already in the assertion step
+      if: ${{ inputs.should_leave_progress_comments == 'true' && failure() && steps.assert_collaborator_ran_workflow.outcome != 'failure' }}
+      uses: snapchat/gigl/.github/actions/comment-on-pr@main
+      with:
+        pr_number: ${{ inputs.pr_number }}
+        message: |
+          ❌ Workflow failed.
+          Please check the logs for more details.
+        comment_id: ${{ steps.comment_workflow_started.outputs.comment_id }} # Append to the previous comment
+
+

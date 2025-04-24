@@ -1,0 +1,20 @@
+name: 'Checkout PR Branch'
+description: 'Checkout the PR branch associated with the PR comment'
+inputs:
+  pr_number:
+    description: 'The pull request number'
+    required: true
+  github-token:
+    description: 'GitHub token to use for authentication'
+    required: true
+runs:
+  using: "composite"
+  steps:
+  # First checkout the default code
+  - uses: actions/checkout@v4
+  # Next checkout to the specific PR
+  - name: Checkout PR
+    shell: bash
+    env:
+      GH_TOKEN: ${{ inputs.github-token }}
+    run: gh pr checkout ${{ inputs.pr_number }}

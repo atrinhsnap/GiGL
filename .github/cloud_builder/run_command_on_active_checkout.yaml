@@ -1,0 +1,41 @@
+substitutions:
+  _CMD: ""
+options:
+  logging: CLOUD_LOGGING_ONLY
+steps:
+  - name: us-central1-docker.pkg.dev/external-snap-ci-github-gigl/gigl-base-images/gigl-builder:e7390e5bfdb35b8d9492a77b20dac7eba025019d.37.1
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        set -e
+        set -x
+
+        if [[ -z "${_CMD}" ]]; then
+          echo "Error: _CMD is not set."
+          exit 1
+        fi
+
+        echo "Setting up environment..."
+        # gcloud runner will run as a non-root user, but all paths/profiles, etc are set up for root
+        echo "source /root/.bashrc" >> ~/.bashrc
+        echo "source /root/.profile" >> ~/.profile
+              
+        source ~/.profile
+        docker buildx create --driver=docker-container --use
+        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        gcloud auth configure-docker us-central1-docker.pkg.dev/external-snap-ci-github-gigl/gigl-base-images/gigl-builder:e7390e5bfdb35b8d9492a77b20dac7eba025019d.37.1
+
+        # TODO: (svij) Enable install_scala_deps.sh to inside Docker image build
+        bash ./requirements/install_scala_deps.sh
+        pip install -e ./python/
+
+        # Since more deps were installed we need to re-source the bashrc
+        source ~/.profile
+
+        echo "Finished setting up environment."
+        echo "========================="
+        echo "Running command: ${_CMD}"
+        echo "========================="
+        $_CMD
+        echo "Finished running command"
