@@ -16,6 +16,7 @@ import fastavro.types
 import requests
 import torch
 from google.cloud import bigquery
+from google.cloud.bigquery.job import LoadJob
 from google.cloud.exceptions import GoogleCloudError
 from typing_extensions import Self
 
@@ -215,7 +216,7 @@ class EmbeddingExporter:
 # TODO(kmonte): We should migrate this over to `BqUtils.load_files_to_bq` once that is implemented.
 def load_embeddings_to_bigquery(
     gcs_folder: GcsUri, project_id: str, dataset_id: str, table_id: str
-) -> None:
+) -> LoadJob:
     """
     Loads multiple Avro files containing GNN embeddings from GCS into BigQuery.
 
@@ -232,6 +233,10 @@ def load_embeddings_to_bigquery(
         project_id (str): The GCP project ID.
         dataset_id (str): The BigQuery dataset ID.
         table_id (str): The BigQuery table ID.
+
+    Returns:
+        LoadJob: A BigQuery LoadJob object representing the load operation, which allows
+        user to monitor and retrieve details about the job status and result.
     """
     start = time.perf_counter()
     logger.info(f"Loading embeddings from {gcs_folder} to BigQuery.")
@@ -259,3 +264,5 @@ def load_embeddings_to_bigquery(
     logger.info(
         f"Loading {load_job.output_rows:,} rows into {dataset_id}:{table_id} in {time.perf_counter() - start:.2f} seconds."
     )
+
+    return load_job
