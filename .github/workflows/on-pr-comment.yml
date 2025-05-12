@@ -30,9 +30,6 @@ jobs:
         # how to leverage Workload Identity Federation to read assets from GCS, et al. See:
         # https://github.com/tensorflow/tensorflow/issues/57104
         use_cloud_run: "true"
-        gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
-        workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
-        gcp_service_account_email: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
         command: |
           make unit_test
   integration-test:
