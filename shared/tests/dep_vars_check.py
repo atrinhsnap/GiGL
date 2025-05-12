@@ -2,6 +2,8 @@ from pathlib import Path
 
 DEP_VARS_FILE_PATH = Path.joinpath(Path(__file__).parent.parent.parent, "dep_vars.env")
 
+import os
+print(os.environ)
 if __name__ == "__main__":
     assert (
         DEP_VARS_FILE_PATH.exists()
