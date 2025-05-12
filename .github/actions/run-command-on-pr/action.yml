@@ -60,6 +60,7 @@ runs:
     - name: Set up workflow URL
       shell: bash
       run: |
+        echo "SEC:"
         echo "WORKFLOW_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
         env
         echo $inputs
